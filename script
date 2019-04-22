@@ -1,0 +1,83 @@
+#!/bin/bash
+
+macchanger () {
+	ifconfig $1 down
+	ifconfig $1 hw ether $macaddress
+	ifconfig $1 up
+	echo "MAC changed to $2"
+	sleep 3
+}
+
+iffig () {
+	wlan=$(ifconfig | grep wl | cut -d" " -f 1)
+	eth=$(ifconfig | grep eth | cut -d" " -f 1)
+
+	echo $eth
+	echo $wlan
+}
+
+ipaddress () {
+	wlan=$(ifconfig wlan0 | grep "inet " | cut -d" " -f 10)
+       	echo "Wlan0 is: $wlan" 
+ 	eth=$(ifconfig eth0 | grep "inet " | cut -d" " -f 10)
+       	echo "Eth0 is: $eth"
+}
+
+connect() {
+	wpa_passphrase $1 $2 > $1.wpa 
+	wpa_supplicant -B -i $3 -c $1.wpa 
+}
+
+while [ true ]
+do
+	clear
+	ipaddress
+	echo "1) Change MAC address"
+	echo "2) Connect to a network"
+	echo "3) Scan Network"
+	echo "4) Quit"
+	read -p 'Please select from the above choices: ' choice
+
+	case $choice in
+		1)
+			clear
+			echo "1) Microsoft-00:15:5D 2) Dell-D4:BE:D9 3) Apple-70:A2:B3 4) Random"
+			read -p 'Create your own MAC aadress or use the above examples to atart your new MAC address: ' macaddress
+			clear
+			iffig
+			read -p 'What interface would you like to change the MAC address of? ' interface
+			macchanger $interface $macaddress
+			;;
+		2)
+			clear
+			read -p 'Do you already have a config file for wpa_supplicant? ' choice
+			if [ $choice = y ] || [ $choice = yes ]
+			then
+				read -p 'Please type the full path to your config file: ' path
+				iffig
+				read -p 'What interface would you like to connect with? ' interface
+				echo "Connecting..."
+				wpa_supplicant -B -i $interface -c $path
+				dhclient $interface
+				wlanip=$(ifconfig $interface | grep "inet " | cut -d" " -f 10)
+				echo "Your IP on the network is wlanip"
+			else	
+				nmcli dev wifi list
+				read -p 'What network would you like to connect? ' ssid
+				read -p 'What is the password to the network? ' passwd
+				ifconfig
+				read -p 'What interfsce would you like to connect to the network? ' interface
+				echo "Connecting to $ssid"
+				connect $ssid $passwd $interface
+			fi
+			;;
+		3)
+			clear
+			read -p 'What is the IP network you would like to scan? ' ipaddress
+			;;
+		4)
+			clear
+			break
+			;;
+		esac
+done
